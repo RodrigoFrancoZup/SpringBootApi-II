@@ -1,0 +1,77 @@
+Capítulo 04 - Gerando Token com JWT
+Nesse capítulo aprendemos:
+⦁	Fazer a segurança como estavamos fazendo por Usuário e Senha não é boa prática na arquitetura REST, pois estamos guardando na sessão (Session) o usuário logado e REST define que não devemos guardar estado!
+
+⦁	Vamos usar uma autenticação sem guardar estado. Assim quando fazer login o servidor gera um Token e devolve ao cliente. Agora toda requisição o cliente deve mandar token junto. O token tem validade de tempo!
+
+⦁	Configurando passo a passo a Atenticação Stateless:
+1- Vamos usar a biblioteca JJWT. Devemos por a dependência no arquivo pom.xml:
+	<dependency>
+		<groupId>io.jsonwebtoken</groupId>
+		<artifactId>jjwt</artifactId>
+		<version>0.9.1</version>
+	</dependency>
+2- Na classe SecurityConfigurations no método configure() com atributo auth  vamos remover o trecho .and().formLogin() e adicionar o código:
+	.and().csrf().disable()
+	.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.	STATELESS);
+3- Ainda na mesma classe do ítem anterior, devemos adicionar mais um .antMatchers, no caso o:
+	.antMatchers(HttpMethod.POST, "/auth").permitAll()
+4- Deletamos o formulário padrão do Spring e com eles perdemos o controller que gerenciava aquele form por baixo dos panos. Vamos ter que criar agora o AutenticacaoController @RestController e @RequestMapping("/auth") e criar o método autenticar();
+5- O método autenticar da classe AutenticacaoController tem que receber por parâmetros @RequestBody @Valid LoginForm form;
+6- Criar a classe LoginForm com atributos: String email, String senha. Gerar Get() e Set();
+
+⦁	Gerando o Tken passo a passo:
+1- Na classe AutenticacaoController vamos criar a referência de objeto: AuthenticationManager authManager com @Autowired, mas Spring não sabe criar esse objeto. Vamos resolver isso no item abaixo;
+
+2- Na classe SecurityConfiguration sobrescrever o método authenticationManager() e anotá-lo com @Bean. Agora o Spring passa a saber criar um AuthenticationManager;
+
+3- Na classe AutenticacaoController dentro do método autenticar() vamos criar o objeto do tipo UsernamePasswordAuthenticationToken com os dados de username e senha vindo da requisição:
+UsernamePasswordAuthenticationToken dadosLogin = form.converter();
+Aqui criamos o método converter dentro da classe LoginForm para já devolver o objeto correto;
+
+4- Com objeto authManager vamos autenticar com os dadosLogin, no caso chamando o método authenticate(dadosLogin). Esse método vai retornar um User Autenticado do tipo Athentication;
+
+5- Devemos colocar o trecho criado até agora dentro do bloco try{} e no catch pegar a AuthenticationException e e retonar um badRequest. Até agora o código deve ter ficado assim:
+@PostMapping 
+public ResponseEntity<?> autenticar(@RequestBody @Valid LoginForm form) { 
+UsernamePasswordAuthenticationToken dadosLogin = form.converter(); 
+try { 
+	Authentication authentication = authManager.authenticate(dadosLogin); 
+	return 	ResponseEntity.ok().build(); 
+} catch (AuthenticationException e) { 
+	return ResponseEntity.badRequest().build(); } 
+}
+
+6- Antes de devolver OK temos que devolver o token. Crie a classe TokenService no pacote config.security. Anotá-la com @Service;
+
+7- Dentro da classe AutenticacaoController criar o atributo tokenService do tipo TokenService e anotá-lo com @Autowired;
+
+8- Antes de responder OK() criar a variável token do tipo Strig. Essa deve receber o retorno do objeto tokenService.gerarToken(authentication). IDE vai reclamar porque não tem esse método, coloque para criar. Estamos enviando para o método gerarToken() o usuário autenticado, pois o token é para ele;
+
+9- Na classe TokenService criar os atributos String expiration e String secret. Ambos vão receber o valor pela variável de ambiente. Ficam assim:
+	@Value("${forum.jwt.expiration}") 
+	private String expiration; 
+
+	@Value("${forum.jwt.secret}") 
+	private String secret;
+
+10- Dentro do método gerarToken criar as variáveis:
+	//Pegando o User Autenticado e tacando no objeto Usuario que nos temos
+	Usuario logado = (Usuario)authentication.getPrincipal();
+//Pegando a data do dia que Token ta sendo criado
+	Date hoje = new Date();
+//Adicionando um dia em milesgundos na data de criação do token
+	Date expiracao = new Date(hoje.getTime() + Long.parseLong(expiration));
+
+11- Criando o token dentro do método gerarToken(authentication). Aqui vamos usar o JJWT. Após o retorno chamar o:
+ 	Jwts.builder() 
+	.setIssuer("API do Fórum dA Alura") //Nome do criador do token 
+	.setSubject(logado.getId().toString())  //Pega um campo unico do usuario logado e passa para string 
+	.setIssuedAt(hoje) //Precisa da data de criação do token 
+	.setExpiration(expiracao) //Data que o token vai expirar 
+	.signWith(SignatureAlgorithm.HS256, secret) //Encriptografar com algoritmo + senha 
+	.compact(); //Compacta tudo em String
+
+12- Criar a classe TokenDTO no pacote de DTO com atributos String token, String tipo. Criar métodos Get() desses atributos e criar o construtor de TokenDTO que recebe dois atributos: String token e String tipo;
+
+13- Na classe AutenticacaoController alterar o retorno do método autenticar() para ResponseEntity<TokenDTO> e no retorno dentro do bloco try{} colocar o trecho: return ResponseEntity.ok(new TokenDTO(token, "Bearer"));
