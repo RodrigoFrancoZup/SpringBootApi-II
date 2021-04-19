@@ -1,0 +1,34 @@
+Capítulo 02 - Melhorando desempenho com Spring Cache
+Nesse capítulo aprendemos:
+
+⦁	Cache é um recurso que permite melhorar o desempenho da aplicação. Resumidamente cache é guardar o retorno de um método em memória, por exemplo: ao chamar pela primeira vez o método listaTopico() o resultado é guardado em memória e quando um cliente chamar novamente esse método não será preciso mais executar linha por linha do método (uma dessas linhas seria consultar no banco de dados), basta retornar o valor em memória;
+
+⦁	Cache é inteligente, ele para armazenar a resposta leva em consideração a URI e os parâmetros que o  Cliente utilizou, se um valor alterar, mesmo a resposta sendo a mesma ele não buscará no cache;
+
+⦁	Todo cache deve receber um nome de identificação;
+
+⦁	Temos que invalidar o cache nas operações (métodos) que manipulam os dados que estão em cahce, por exemplo: se está em cache a listagem de tópicos, os métodos de alterar/deletar/inserir tópico devem invalidar o cache;
+
+⦁	Devemos adicionar a biblioteca de Cache do Spring no arquivo pom.xml;
+
+⦁	Devemos adicionar a biblioteca de um Provider de Cache no arquivo pom.xml. Nesse curso não vamos fazer isso, vamos utilizar o padrão do Spring, mas em Produção devemos utilizar outro;
+
+⦁	Devemos habilitar o módulo cache em nossa aplicação com a anotação  @EnableCaching na classe Principal, no caso ForumApplication;
+
+⦁	Não devemos sair usando cache em todos os métodos, temos que analisar em quais cenários se faz necessário. Uma dica que classes/tabelas que sofrem muitas alterações NÃO devem utilizar armazenamento em cache, logo Listagem de Tópicos não seria uma boa ideia, estamos utilizando nessa operação apenas com fins didáticos;
+
+⦁	Passo a passo para adicionar cache no meto lista() da classe TopicoController;
+
+	1- Adicionar a biblioteca de cache do Spring no arquivo pom.xml :
+		<dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+	2- Anotar a classe Principal, no caso ForumApplication com @EnableCaching;
+	3- Anota o método lista() de TopicoController com:                        @Cacheable(value = "listaDeTopicos")
+	4- O chache para esse método já está funcionando;
+	5- Como verificar se realmente está fucionando? Podemos configurar para o Spring mostrar os comandos SQL que a JPA está rodando, pois assim saberei se esse método está chamando o banco toda vez que houver uma request. Quando o banco não é chamado é porque foi usado o resultado em memória. Esperamos que a primeira execução rode o banco e as outras não. Para isso adicione essas linha no arquivo application.properties: 
+		spring.jpa.properties.hibernate.show_sql=true 
+		spring.jpa.properties.hibernate.format_sql=true
+	6-Temos que invalidar o cahce nos método Delete/Update/Post de Tópico. Para isso basta por a anotação:                                                          @CacheEvict(value = "listaDeTopicos", allEntries = true)
+		Obs: Passamos o nome do cache a ser destruído e que todos os dados gravados serão apagado (allEntires).
