@@ -1,0 +1,68 @@
+Capítulo 03 - Proteção com Spring Security
+Nesse capítulo aprendemos:
+
+⦁	Como deixar nossa API mais segura.
+
+⦁	Passo a passo de como configurar a nossa api com Spring Scurity:
+	1- Precisamos adicionar no arquivo pom.xml a biblioteca de segurança do Spring Boot, sendo ela:
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+	2- Agora precisamos configurar nossa API para usar a biblioteca adicionada, e essa configuração vai exigir que criemos algumas classes Java;
+	3- Criar a classe SecurityConfigurations no pacote br.com.alura.forum.config.security;
+	4- Vamos anotar essa classe com @EnableWebSecurity @Configuration, a primeira vai ativar o módulo de segurança em nossa API e a segunda anotação indica que essa é uma classe de configuração, que o Spring tem que procurar configurações nela;
+	5- Essa classe ainda deve herdar (extends) de WebSecurityConfigurerAdapter. A classe mãe possui 3 métodos que começa com o nome configure, devemos sobrescreve-los (começe escrevendo configure e dê alt+espaço);
+	6- Nossa API nesse ponto bloqueou todos endpoints;
+
+⦁	Vamos liberar alungs Endpoints de nossa API, para não exigir Login e Senha:
+	1- Quando assunto é qual URL posso acessar, qual URL devo bloquear, devemos mexer no método configure que recebe por parâmetro o HttpSecurity http;
+	2- Escrevemos o seguinte código: 
+		http.authorizeRequests()
+		.antMatchers(HttpMethod.GET,"/topicos").permitAll() 
+		.antMatchers(HttpMethod.GET, "/topicos/*").permitAll()
+		.anyRequest().authenticated();
+	
+	Assim estamos liberando toda requisição do verbo GET que tenha sua URL com /topicos ou /topicos/QualQuerCoisa e para as demais estamos exigindo autenticação;
+
+⦁	Implementando a Lógica para Autenticação
+	1- Temos que criar diversas classes para implementar a autenticação. A primeira classe que precisamos é a classe de Usuário que tera o atributo Login e Senha, nós já temos essa classe e por coincidência se chama usuario, mas o Spring precisa saber quesse classe é a que tem os atributos necessários, por isso essa classe deve implementar (implements) UserDetails;
+	2- Ao implementar a interface UserDetails devemos implementar todos seus métodos. Os métodos cujo retorno é Boolean devemos por True, eles são para controle de usário bloqueado, tempo de sessão, etc... Não vamos mexer com isso. No método get Password devemos retonar o atributo senha de nossa classe usuario e no método getUsername devemos retornar nosso atributo email.
+	3- Ainda temos o método getAuthorities da interface UserDetail que não alteramos. Todo usuário tem um ou mais Papel na API, esse papel ta vinculado a regras de acesso que ele terá. Vamos por nesse metodo o retorno this.perfis e criar na classe usuário o atributo List<Perfil> perfis - com anotação @ManyToMany(fetch =  FetchType.EAGER). O eclipse vai reclamar, não temos essa classe, vamos criar a classe Perfil no pacote modelo;
+	4- A classe Perfil deve ser anotada com @Entity e ter os atributos: Long id anotado com @Id e @GeneratedValue e o atributo String nome. Devemos criar os métodos Get() e Set() dos atributos;
+	5- A classe perfil deve implementar a interface GrantedAuthority e por consequência implementar seu método getAuthority(). Devemos retornar no método getAuthority() o atributo que define o papel de nossa classe, no caso o atributo nome;
+	6- Ir na classe SecurityConfigurations, e após o método .authenticated() colocar o .and().formLogin() Com isso quando tentarmos chamar uma URL que exige login e o usuário não estiver logado um formuário padrão do Spring irá surgir para o usuário se logar;
+
+⦁	Autenticando o usuário:
+	1- Quando assunto é autenticação (Login e Senha) devemos mexer no método configure que recebe por parâmetro o AuthenticationManagerBuilder auth;
+	2- Devemos criar uma classe do tipo Service que irá tratar a operação de autenticação. No pacote br.com.alura.forum.config.security criar a classe AutenticacaoService e anotá-la com @Service e implementar a interface UserDetailsService e seus métodos;
+	3- Criar o repositório de Usuario, no caso uma interface UsuarioRepository que implements JpaRepository<Usuario, Long>;
+	4- No repositório de usuário criar assinatura de um método que retorna o Optional de Usuário de acordo com seu username, no nosso caso ficou                               Optional<Usuario> findByEmail(String email);
+	5- Na classe AutenticacaoService criar a referencia para UsuarioRepository e chamar o método findByEmail. Verficar o Optional, se tem o usuario retorna ele, caso contrário lançar a exception UsernameNotFoundException. O código ficou assim:
+
+	@Autowired 
+	UsuarioRepository repository;
+	@Override 
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException { 
+		Optional<Usuario> usuario = repository.findByEmail(username); 
+		if (usuario.isPresent()) { 
+		return usuario.get(); 
+		}
+ 	throw new UsernameNotFoundException("Dados inválidos"); 
+	}
+
+	6- Agora na classe SecurityConfigruartion vamos criar o objeto AutenticacaoService autenticacaoService e anotá-lo com @AutoWired;
+	7- Ainda na classe SecurityConfigruartion vamos mexer no método Configure com parametro Auth. Nele vamos escrever o código: auth.userDetailsService(autenticacaoService).passwordEncoder(new BCryptPasswordEncoder());
+
+⦁	A senha do Usuário no banco de dados não está criptografada, devemos encriptá-la no formato BCrypt, pois Spring ta usando esse algoritmo e ele vai comparar as senhas.
+
+⦁	RESUMÃO - Para Autenticar com Spring precisamos de:
+	1- Adicionar a biblioteca Security;
+	2- Criar a classe SecurityConfiguration @EnableWebSecurity @Configuration e Extends WebSecurityConfigurerAdapter. Sobrescrever os 3 métodos configure();
+	3- Criar uma classe que tenha user e password como atributo, já tinhamos a Usuario. Essa classe deve implementar UserDetails;
+	4- Criar a classe modelo que irá ter o papel (perfil) de cada usuário. Essa classe deve implementar o GrantedAuthority;
+	5- A classe que tem user e password (nosso caso Usuario) ganha o atributo List<ClasseDosPerfis> perfis @ManyToMany(fetch =  FetchType.EAGER)
+	6- Criar uma classe do tipo Service, pode ser AutenticacaoService implements UserDetailService
+	7- Criar um repository para a classe que tem os atributos user e password (nosso caso usuário). Criar um método para retornar pelo campo user;
+
+
