@@ -1,0 +1,30 @@
+Capítulo 01 - Páginação e ordenação de recursos
+Nesse capítulo aprendemos:
+
+⦁	A como fazer uma páginação, ou seja, quando o cliente solicita uma listagem de Tópicos, o mesmo pode pedir que venha X Tópicos por página;
+
+⦁	Há duas maneira de fazer essa páginação, uma mais manual recebendo o parâmetro por Request Param/Query Params (são os que vem pela URI, mas que utiliza ?) e a outra recebemos no método o parâmetro Pageable do Spring;
+
+⦁	É possível também ordenar a listagem por qualquer parâmetro, e para fazer isso também há duas maneiras, a "manual" recebendo por Query Params, ou então recebendo o Parâmetro Pageable do Spring;
+
+⦁	Aprendemos que os atributos do tipo Query Params não precisam de anotação, mas que ao utilizar sem anotação eles são opcionais. Podemos deixa-los obrigatórios colocando a anotação @RequestParam. Com anotação podemos indicar que o mesmo não é obrigatório, adicionando o (required = false), ficando assim @RequestParam(required = false);
+
+⦁	Vamos primeiro fazer a paginação manual:
+	1- O método lista passa a receber mais dois parâmetros, o int pagina e o int qtd;
+	2- Criamos um objeto do tipo Pageable, para criá-lo vamos usar o método PageRequest.of() passando a ele os atributos pagina e qts. Ficando assim: Pageable paginacao = PageRequest.of(pagina, qtd);
+	3- Devemos passar o objeto paginacao para os métodos de busca do repositório, ficando assim topicoRepositorio.findAll(paginacao);
+	4- Se estivéssemos utilizando um método personalizado de topicoRepositorio, nós teríamos que alterar seu retorno e adicionar que o mesmo recebe o parâmetro Pageable;
+	5-Devemos corrigir o retorno do metodo list() e do método findAll(), pois agora o retorno será de Page<TopicoDTO> e Page<Topico>;
+	6- URI dessa consulta ficou: localhost:8080/topicos?pagina=0&qtd=3
+
+⦁	Vamos primeiro fazer a ordenacão manual:
+	1- Vamos receber um atributo a mais no metodo lista(), agora sera a String ordenacao;
+	2- Vamos agorar passar mais dois atributos para o objeto paginacao, no método que cria esse objeto, o PageRequest() vai receber os atributos: pagina, qtd, Direction.asc / Direction.desc, ordenacao. Poderiamos receber em lista() um parametro chamdo direcao e depois fazer um if para colocar no Direction, mas pode padrão vamos deixá-lo asc (ascendente). Ficou assim: Pageable paginacao = PageRequest.of(pagina, qtd, Direction.asc, ordenacao);
+	3- URI dessa consulta ficou: localhost:8080/topicos?pagina=0&qtd=3&ordenacao=mensagem
+
+⦁	Vamos fazer a paginação e ordenação automática:
+	1- Precisamos ativar um módulo no Spring que vai permitir pegarmos informações na requisição e repassá-la pro Spring Data. Para isso devemos colocar a anotação @EnableSpringDataWebSupport em cima da classe Principal, no caso ForumApplication;
+	2- Remover os atributos int pagina, int quantidade e String ordenacao do metodo lista() e adicionar apenas o Pageable paginacao;
+	3- URI dessa consulta ficou: localhost:8080/topicos?page=0&size=4&sort=mensagem,asc
+	4- Caso queira adicionar ordenação composta, basta por mais atributos sort, ficando assim: localhost:8080/topicos?page=0&size=4&sort=mensagem,asc&sort=id,desc
+	5- Se cliente não enviar parametro page a listagem será padrão, ou seja, vai listar tudo na ordem do ID do banco de dados, podemos mudar esse padrão com a anotação @PageableDefault(sort = "atributo", direction = Direction.asc) antes do atributo Pageable paginacao;
