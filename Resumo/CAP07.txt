@@ -1,0 +1,31 @@
+Capítulo 07 - Documentação da API com Swagger
+Nesse capítulo aprendemos:
+
+-É importante documentar nossa API, para que o Cliente saiba consumi-la, mas não queremos perder tempo escrevendo um manual. Podemos usar ferramentas como API Swager para gerar esse documento (site). Obs: Swagger tem várias ferramentas que nos ajudam a projetar/desenvolver/documentar/testar API.
+
+-Vamos usar a implementação SpringFox para documentar nossa API. Ela utiliza o Swagger. Obs: SpringFox não é uma biblioteca do Spring (não foi desenvolvido por eles);
+
+Passo a passo para documentar nossa API:
+
+1- Adicionar as dpendências do SpringFox em nosso projeto (arquivo pom.xml):
+<dependency>
+	<groupId>io.springfox</groupId>
+	<artifactId>springfox-swagger2</artifactId>
+	<version>2.9.2</version>
+</dependency>
+<dependency>
+	<groupId>io.springfox</groupId>
+	<artifactId>springfox-swagger-ui</artifactId>
+	<version>2.9.2</version>
+</dependency>
+
+2- Devemos habilitar essa depêndencia. Vamos colocar a anotação @EnableSwagger2 em cima do método main() da class main (ForumApplication);
+
+3- SpringFox ainda precisa de uma classe de configuração, nela podemos proibir que uma classe seja documentada, ou algo do tipo. Vamos criar no pacote config.swagger vamos criar a classe SwaggerConfiguration e anotá-la com @Configuration;
+
+4- Na classe SwaggerConfiguration criar o método Docket api() e anotá-lo com @Bean. O corpo desse método deve ser consultado no repositório, pois é grande - Atenção nesse método vamos dar um ignored(Usuario.class) pois assim não documetará a senha de usuário;
+
+5- Devemos agora liberar a URL do Swagger lá na classe SecurityConfiguration, MAS AGORA NO MÉTODO configure(WebSecurity web). Vamos colocar o trecho:
+web.ignoring().antMatchers("/**.html", "/v2/api-docs", "/webjars/**", "/configuration/**", "/swagger-resources/**");
+
+6- Está pronto. Podemos acessar a documentação em: localhost:8080/swagger-ui.html
