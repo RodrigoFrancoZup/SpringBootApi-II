@@ -1,0 +1,62 @@
+Capítulo 06 - Monitoramente com Spring Boot Actuator
+Nesse capítulo aprendemos:
+
+⦁	Como podemos monitorar nossa AP com o Spring Actuator, ou seja, ter informações se a aplicação está rodando, se o banco está rodando, quanto do disco e memória estão disponiveis...
+
+⦁	Actuator vai criar endpoints que retornam um Json com as informações;
+
+⦁	Para ativá-lo em nosso projeto precisamos adicionar a sua dependência no pom.xml:
+<dependency>
+	<groupId>org.springframework.boot</groupId>
+	<artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+
+⦁	Agora já temos o actuator funcionando. Para rodá-lo basta acessar com GET o endpoint: localhost:8080/actuator
+Obs: Para teste vamos habilitar essa URL na classe SecurityConfiguration. No método configure(HttpSecurity http) adicionar o trecho:
+.antMatchers(HttpMethod.GET, "/actuator/**").permitAll()
+
+⦁	A URL localhost:8080/actuator retorna uma várias URL com informações da API. Por padão a URL de info vem vázio. Podemos configurar nossa API para expor mais informações. Vamos fazer isso no arquivo application.properties:
+
+management.endpoint.health.show-details=always
+management.endpoints.web.exposure.include=*
+info.app.name=@project.name@
+info.app.description=@project.description@
+info.app.version=@project.version@
+info.app.encoding=@project.build.sourceEncoding@
+info.app.java.version=@java.version@
+
+Obs: Esse '@' indica que a informação está sendo adquirida do arquivo pom.xml
+
+⦁	Vimos que as informações são passadas por JSON. Poderiamos criar uma aplicação com iterface gráfica para mostrar essas informações ou então utilizar uma pronta, no caso o Spring Boot Admin - atenção, esse projeto não é feito pela equipe do Spring - é feito pela codecentric: https://github.com/codecentric/spring-boot-admin
+
+⦁	Como utilizar o Spring Boot Admin? Siga os passos:
+
+1-Criar um projeto Spring Boot (utilizar o site https://start.spring.io/) utilizando apenas o módulo web;
+
+2- Adicionar a dependência do Spring Boot Admin no projeto (arquivo pom.xml): 
+<dependency>
+	<groupId>de.codecentric</groupId>
+	<artifactId>spring-boot-admin-starter-server</artifactId>	<version>2.3.1</version>
+</dependency>
+
+3- Ir na classe main, no caso MonitoramentoApplcation, tirar as anotações que ela tem por padão e deixar apenas:
+@Configuration
+@EnableAutoConfiguration
+@EnableAdminServer
+
+4- Como estamos rodando as duas API's localmente, ambas estão na mesma porta 8080, vamos mudar a porta desse projeto Spring Boot Admin - Monitoramento. Para isso basta por o techo no arquivo application-properties:
+server.port=8081
+
+5- Pronto, esse projeto já esta rodando no localhost:8081/
+
+6- Agora temos que configurar a API forum-II, para ela ser cliente da API monitoramento.
+
+7- Na API forum-II colocar a dependencia (arquivo pom.xml):
+<dependency>
+	<groupId>de.codecentric</groupId>
+	<artifactId>spring-boot-admin-starter-client</artifactId>	<version>2.3.1</version>
+</dependency>
+
+8- No arquivo application.properties de forum-II adicionar o trecho:
+spring.boot.admin.client.url=http://localhost:8081
+Obs: aqui é o endereço que vai rodar a API monitoramento
