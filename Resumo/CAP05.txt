@@ -1,0 +1,68 @@
+Capítulo 05 - Autenticação via JWT
+Nesse capítulo aprendemos:
+
+⦁	Nossa API já autentica o cliente por Username e Password, daí gera um token para esse cliente já autenticado, mas quando o mesmo envia o token em uma nova requisição nossa API ainda não sabe verificar esse token, vamos fazer isso agora!
+
+⦁	Passo a passo de como verificar o token enviado por um cliente:
+
+1- Para verifcar um Token devemos pegar a requisição do cliente antes dela cair em um controller, para isso vamos criar um filtro. No pacote security criar a classe AutenticacaoViaTokenFilter e ela deve herdar (extends) OncePerRequestFilter. Devemos implementar o método abstrato, ele vai ter a lógica para verificar o token;
+
+2- A última linha do método doFilterInternal() é o código para dar continuidade a request, pois pegamos ela antes de cair em um controller, logo depois de fazermos o que tem que ser feito, devemos dar continuidade a request. O código é: filterChain.doFilter(request, response);
+
+3- Agora vamos autenticar novamente o usuário, pois toda vez que cliente manda o token devemos autenticar o cliente com o token, pois API é Stateless, já perdemos a autenticação feita anteriormente;
+
+4- Na classe AutenticacaoViaTokenFiler vamos criar um método privado que pega o token da request. Esse método vai chamar recuperarToken(). Ele ficará assim: 
+ private String recuperarToken(HttpServletRequest request) {   
+	String token = request.getHeader("Authorization");  
+	 if (token == null || token.isEmpty() || !token.startsWith("Bearer ")) {    
+	return null;   
+	}  
+ 	return token.substring(7, token.length());  
+}
+
+5- Dentro do método doFilterInternal vamos chamar o método recuperarToken(request), passando a request que temos e vamos guardar o retorno em uma váriavel String token;
+
+6- Para o filtro AutenticacaoViaTokenFilter tem que ser registrado, mas não temos anotação para isso. Para registrar esse filtro temos que ir na classe SecurityConfiguration, no método configure(HttpSecurity http), que tem o parâmetro Http, devemos adicionar depois do .sessionCreationPolicy(...) o código:    .and().addFilterBefore(new AutenticacaoViaTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+
+7- Na classe TokenService vamos criar um método que verifica o token. Esse método vai chamar isTokenValido e vai receber um token por parâmetro. Vai ficar assim:
+ public boolean isTokenValido(String token) {   
+	try {    
+	Jwts.parser().setSigningKey(this.secret).parseClaimsJws(token);   
+ 	return true;  
+	 } catch (Exception e) {   
+ 	return false;   
+	}   
+}
+
+8- Dentro do método doFilterInternal() da classe  AutenticacaoViaTokenFilter vamos chamar o método isTokenValido enviando por parâmetro o token e vamos guardar a resposta em uma váriavel booleana. Vai ficar assim:
+	boolean valido = tokenService.isTokenValido(token);
+
+9- O ítem anterior vai dar erro, pois não temos o objeto tokenService. Vamos criar então na classe AutenticacaoViaTokenFilter o atributo TokenService tokenService, mas o @Autowired não vai funcionar. Como vamos criar esse objeto? Através do construtor. Crei o construtor de AutenticacaoViaTokenFilter recebendo esse atributo, vai ficar assim:
+
+public AutenticacaoViaTokenFilter(TokenService tokenService) { 
+this.tokenService = tokenService; }
+
+Agora quem chamar AutenticacaoViaTokenFilter tem que passar o tokenService criado, e quem chama? A classe SecurityConfiguration.
+
+10- Na classe SecurityConfiguration criar o atributo @Autowired private TokenService tokenService;
+
+11- Ainda na classe SecurityConfiguration ir no método configure(Http) e no trecho cria o objeto AutenticacaoViaTokenFilter passar o objeto tokenService. Vai ficar assim: 
+.addFilterBefore(new AutenticacaoViaTokenFilter(tokenService), UsernamePasswordAuthenticationFilter.class)
+
+12- Na classe AutenticacaoViaTokenFilter, após a variável boolean valido = tokenService.isTokenValido(token) devemos fazer um IF comparando a variável valido. Se ele for verdadeiro vamos chamar o método autenticarCliente(token). Esse método ainda não existe, vamos criá-lo na mesma classe, no caso AutenticacaoViaTokenFilter.
+
+13- No método autenticarCliente(token) vamos precisar de um objeto usuario. Através do token podemos extrair o ID do usuário, mas quem sabe mexer com token é a classe TokenService. Vamos criar em TokenService o método getIdUsuario(token). Assim teremos o id de usuário.
+
+14- Ainda precisamos do Objeto usuário. Como já temos o id vamos usar o usuarioRepository e buscar por id. Então na classe AutenticacaoViaTokenFilter vamos cirar o atributo UsuarioRepository usuarioRepository, mas lembra que não podemos usar @Autorwired aqui? Então vamos criar esse objeto usando o construtor de AutenticacaoViaTokenFilter;
+
+15- Agora quem chama o AutenticacaoViaTokenFilter tem que passar o objeto tokenService e o usuarioRepository. Neste caso a classe SecurityConfiguration vai ter o atirbuto UsuarioRepository usuarioRepository anotado com @Autowired e ao dar new em AutenticacaoViaTokenFilter deve passá-lo, ficando assim:  
+.addFilterBefore(new AutenticacaoViaTokenFilter(tokenService, usuarioRepository), UsernamePasswordAuthenticationFilter.class); 
+
+16- Agora podemos implementar o método autenticarCliente(token) da classe AutenticacaoViaTokenFilter. Vai ficar assim:
+ private void autenticarCliente(String token) {   
+Long idUsuario = tokenService.getIdUsuario(token);   
+Usuario usuario = usuarioRepository.findById(idUsuario).get();   
+UsernamePasswordAuthenticationToken authentication = new 
+UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());   
+SecurityContextHolder.getContext().setAuthentication(authentication);     
+}

@@ -20,6 +20,11 @@ import br.com.alura.forum.modelo.form.LoginForm;
 @RequestMapping("/auth")
 public class AutenticacaoController {
 
+	//Spring por padrao n sabe criar esse obj
+	//Temos que ir na classe SecurityConfigurations
+	//e sobrescrever  o método:
+	//authenticationManager() e anota-lo:
+	//@Bean
 	@Autowired
 	private AuthenticationManager authManager;
 	
